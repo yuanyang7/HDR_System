@@ -1,5 +1,5 @@
 CC = g++
-CFLAGS = -g -Wall
+CFLAGS = -g -Wall 
 LDFLAGS = `pkg-config --cflags --libs /usr/local/Cellar/opencv/3.4.3/lib/pkgconfig/opencv.pc`
 OBJECTS = hdr.o
 LINK_TARGET = hdr
