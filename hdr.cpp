@@ -4,6 +4,7 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc.hpp>
+#include <opencv2/photo.hpp>
 #include <fstream>
 #include <math.h>
 using namespace std;
@@ -16,7 +17,7 @@ public:
 
     int *exp_time;
     int *hdr_exp_time;
-    float a_T[3];
+    double a_T[3];
     int img_num;
     vector<cv::Mat> img;
     vector<cv::Mat> img_stack;
@@ -66,7 +67,7 @@ public:
             //cv::waitKey(0);
         }
 
-        checkSaturate(img[img_num - 1]);
+        _checkSaturate(img[img_num - 1]);
 
         //calculate mean
         //(img_num, b);
@@ -97,9 +98,9 @@ public:
         _HDR_method1(img_stack);
         _HDR_method2(img_stack);
         /*
-        checkSaturate(img_stack[0]);
-        checkSaturate(img_stack[1]);
-        checkSaturate(img_stack[2]);
+        _checkSaturate(img_stack[0]);
+        _checkSaturate(img_stack[1]);
+        _checkSaturate(img_stack[2]);
         */ //todo:same
 
 
@@ -108,16 +109,7 @@ public:
 
 
     }
-    void checkSaturate(const cv::Mat& mat)
-    {
-        double mat_min, mat_max;
-        cv::minMaxLoc(mat, &mat_min, &mat_max);
-        if( mat_max >= 255.0)
-            std::cout<<"WANRNING: Images have saturated pixels." << endl;
-        else
-            std::cout<<"All the pixels are non-saturated." << endl;
-        std::cout<<"The largest value is "<< mat_max << endl;
-    }
+
     void saveDataForPlotting(string path)
     {
         ofstream results_file(path);
@@ -145,6 +137,16 @@ public:
             std::cout << "Unable to open file";
     }
 private:
+    void _checkSaturate(const cv::Mat& mat)
+    {
+        double mat_min, mat_max;
+        cv::minMaxLoc(mat, &mat_min, &mat_max);
+        if( mat_max >= 255.0)
+            std::cout<<"WANRNING: Images have saturated pixels." << endl;
+        else
+            std::cout<<"All the pixels are non-saturated." << endl;
+        std::cout<<"The largest value is "<< mat_max << endl;
+    }
     void _HDR_method1(const vector<cv::Mat>& imgs)
     {
         float saturated[] = {std::pow(255, 1.0/b[0]), std::pow(255, 1.0/b[1]),std::pow(255, 1.0/b[2])};
@@ -171,16 +173,14 @@ private:
                 }
             }
         }
-        checkSaturate(result);
-        //_calculateHistogram(result, imgs[0].rows, imgs[0].cols, "HDR1");
 
-        _HDRSaveRes(result,imgs[0].rows, imgs[0].cols,"HDR1_res_.txt");
-
+        //_HDRSaveRes(result,imgs[0].rows, imgs[0].cols,"HDR1_res_.txt");
+        _ToneMap(result, imgs[0].rows, imgs[0].cols,1);
 
         /*
         result.convertTo(result, CV_16S );
         cv::imwrite("res_HDR1.PNG", result);
-        checkSaturate(result);
+        _checkSaturate(result);
 
         */
     }
@@ -234,12 +234,37 @@ private:
             }
         }
 
-        checkSaturate(result);
-        _HDRSaveRes(result,imgs[0].rows, imgs[0].cols, "HDR2_res_.txt");
-        /*
-        result.convertTo(result, CV_16S );
-        cv::imwrite("res_HDR2.PNG", result);
-        */
+        //_HDRSaveRes(result,imgs[0].rows, imgs[0].cols, "HDR2_res_.txt");
+        _ToneMap(result, imgs[0].rows, imgs[0].cols, 2);
+
+    }
+    void _ToneMap(cv::Mat& img, int rows, int cols, int index)
+    {
+        cv::Mat res;
+        // createTonemapDurand(float gamma=1.0f, float contrast=4.0f, float saturation=1.0f, float sigma_space=2.0f, float sigma_color=2.0f)
+        Ptr<TonemapDurand> durand = createTonemapDurand((1.0/b[2] + 1.0/b[1] + 1.0/b[0]) / 3.0, 4.0f, 1.0f, 2.0f, 2.0f);
+        durand->process(img, res);
+
+        double mat_min, mat_max, dis;
+        cv::minMaxLoc(res, &mat_min, &mat_max);
+
+        for(int j = 0; j < rows; j++)
+        {
+            for(int i = 0; i < cols; i++)
+            {
+                for(int c = 0; c < 3; c++)
+                {
+                    res.at<cv::Vec3f>(j,i)[c] = res.at<cv::Vec3f>(j,i)[c] * 255.0;
+                    //cout<<res.at<cv::Vec3f>(j,i)[c]<<endl;
+                }
+            }
+        }
+        //_checkSaturate(res);
+
+        res.convertTo(res, CV_8U );
+        cv::imwrite("HDR" + std::to_string(index) + "_res.JPG", res);
+
+
 
     }
     void _calculateHistogram(const cv::Mat& img, string index)
