@@ -89,9 +89,9 @@ public:
     void HDR(const string& path){
         //190, 208
         //select: 251, 60, 2037(or 754)
-        img_stack.push_back(cv::imread( path + "1_754.JPG", CV_LOAD_IMAGE_COLOR));
-        img_stack.push_back(cv::imread( path + "1_251.JPG", CV_LOAD_IMAGE_COLOR));
-        img_stack.push_back(cv::imread( path + "1_90.JPG", CV_LOAD_IMAGE_COLOR));
+        img_stack.push_back(cv::imread( path + "1_"+ std::to_string(hdr_exp_time[0] ) +".JPG", CV_LOAD_IMAGE_COLOR));
+        img_stack.push_back(cv::imread( path + "1_"+ std::to_string(hdr_exp_time[1] ) +".JPG", CV_LOAD_IMAGE_COLOR));
+        img_stack.push_back(cv::imread( path + "1_"+ std::to_string(hdr_exp_time[2] ) +".JPG", CV_LOAD_IMAGE_COLOR));
         for (int i = 0 ; i < 3; i++)
             img_stack[i].convertTo(img_stack[i], CV_32F);
         _radiometriCalibration(img_stack);
@@ -240,9 +240,10 @@ private:
     }
     void _ToneMap(cv::Mat& img, int rows, int cols, int index)
     {
+
         cv::Mat res;
         // createTonemapDurand(float gamma=1.0f, float contrast=4.0f, float saturation=1.0f, float sigma_space=2.0f, float sigma_color=2.0f)
-        Ptr<TonemapDurand> durand = createTonemapDurand((1.0/b[2] + 1.0/b[1] + 1.0/b[0]) / 3.0, 4.0f, 1.0f, 2.0f, 2.0f);
+        Ptr<TonemapDurand> durand = createTonemapDurand((1.0/b[2] + 1.0/b[1] + 1.0/b[0]) / 3.0, 4.0f, 0.8f, 2.0f, 2.0f);
         durand->process(img, res);
 
         double mat_min, mat_max, dis;
@@ -263,6 +264,43 @@ private:
 
         res.convertTo(res, CV_8U );
         cv::imwrite("HDR" + std::to_string(index) + "_res.JPG", res);
+
+        /*
+        cv::Mat res_split[3];
+        cv::Mat res;
+        cv::Mat planes[3];
+
+        cv::split(img, planes);
+        cout<<img.size()<<img.channels()<<endl;
+        cout<<planes[0].size()<<planes[0].channels()<<endl;
+        // createTonemapDurand(float gamma=1.0f, float contrast=4.0f, float saturation=1.0f, float sigma_space=2.0f, float sigma_color=2.0f)
+        Ptr<TonemapDurand> durand_r = createTonemapDurand(1.0/b[0], 4.0f, 1.0f, 2.0f, 2.0f);
+        Ptr<TonemapDurand> durand_g = createTonemapDurand(1.0/b[1], 4.0f, 1.0f, 2.0f, 2.0f);
+        Ptr<TonemapDurand> durand_b = createTonemapDurand(1.0/b[2], 4.0f, 1.0f, 2.0f, 2.0f);
+
+        durand_r->process(planes[0], res_split[0]);
+        durand_g->process(planes[1], res_split[1]);
+        durand_b->process(planes[2], res_split[2]);
+        cout<<res_split[0].size()<<res_split[0].channels()<<endl;
+        cv::merge(res_split, 3, res);
+        cout<<res.size()<<res.channels()<<endl<<endl;
+
+        for(int j = 0; j < rows; j++)
+        {
+            for(int i = 0; i < cols; i++)
+            {
+                for(int c = 0; c < 3; c++)
+                {
+                    res_split[0].at<cv::Vec3f>(j,i)[c] = res_split[0].at<cv::Vec3f>(j,i)[c] * 255.0;
+                    //cout<<res.at<cv::Vec3f>(j,i)[c]<<endl;
+                }
+            }
+        }
+
+
+        res_split[0].convertTo(res_split[0], CV_8U );
+        cv::imwrite("HDR" + std::to_string(index) + "_res.JPG", res_split[0]);
+        */
 
 
 
@@ -348,7 +386,7 @@ int main()
 
     //int exp_time[] = {350, 250, 180, 125, 90, 60, 45, 30};
     int exp_time[] = {8772, 6410, 4167, 3096, 2037, 1520, 1008, 754, 501, 351};
-    int hdr_exp_time[] = {754, 251, 90};
+    int hdr_exp_time[] = {2037, 351, 180};//754, 251, 90 //754,351,180
     int img_num = sizeof(exp_time) / sizeof(*exp_time);
     device device1(exp_time, hdr_exp_time, img_num);
     //device1.radiometriCalibrationParam("src/prt1/1_");
