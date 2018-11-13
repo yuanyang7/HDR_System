@@ -16,6 +16,7 @@ public:
 
     int *exp_time;
     int *hdr_exp_time;
+    float a_T[3];
     int img_num;
     vector<cv::Mat> img;
     vector<cv::Mat> img_stack;
@@ -36,6 +37,8 @@ public:
         this->img_num = img_num;
         cropped_width = 768;
         cropped_height = 512;
+        a_T[1] = (1.0/hdr_exp_time[1]) / (1.0/hdr_exp_time[0]);
+        a_T[2] = (1.0/hdr_exp_time[2]) / (1.0/hdr_exp_time[0]);
     }
     void radiometriCalibrationParam(const string& path)
     {
@@ -85,17 +88,21 @@ public:
     void HDR(const string& path){
         //190, 208
         //select: 251, 60, 2037(or 754)
-        img_stack.push_back(cv::imread( path + "1_2037.JPG", CV_LOAD_IMAGE_COLOR));
+        img_stack.push_back(cv::imread( path + "1_754.JPG", CV_LOAD_IMAGE_COLOR));
         img_stack.push_back(cv::imread( path + "1_251.JPG", CV_LOAD_IMAGE_COLOR));
-        img_stack.push_back(cv::imread( path + "1_60.JPG", CV_LOAD_IMAGE_COLOR));
-
+        img_stack.push_back(cv::imread( path + "1_90.JPG", CV_LOAD_IMAGE_COLOR));
+        for (int i = 0 ; i < 3; i++)
+            img_stack[i].convertTo(img_stack[i], CV_32F);
         _radiometriCalibration(img_stack);
-        //_calculateHistogram(img_stack[0],hdr_exp_time[0]);
-        //_calculateHistogram(img_stack[1],hdr_exp_time[1]);
-        //_calculateHistogram(img_stack[2],hdr_exp_time[2]);
-        _saveImageInfo(img_stack[0],hdr_exp_time[0]);
-        _saveImageInfo(img_stack[1],hdr_exp_time[1]);
-        _saveImageInfo(img_stack[2],hdr_exp_time[2]);
+        _HDR_method1(img_stack);
+        _HDR_method2(img_stack);
+        /*
+        checkSaturate(img_stack[0]);
+        checkSaturate(img_stack[1]);
+        checkSaturate(img_stack[2]);
+        */ //todo:same
+
+
 
 
 
@@ -105,7 +112,7 @@ public:
     {
         double mat_min, mat_max;
         cv::minMaxLoc(mat, &mat_min, &mat_max);
-        if( mat_max == 255.0)
+        if( mat_max >= 255.0)
             std::cout<<"WANRNING: Images have saturated pixels." << endl;
         else
             std::cout<<"All the pixels are non-saturated." << endl;
@@ -138,56 +145,133 @@ public:
             std::cout << "Unable to open file";
     }
 private:
-    void _saveImageInfo(const cv::Mat& img, int index)
+    void _HDR_method1(const vector<cv::Mat>& imgs)
     {
+        float saturated[] = {std::pow(255, 1.0/b[0]), std::pow(255, 1.0/b[1]),std::pow(255, 1.0/b[2])};
+        cv::Mat result = imgs[0].clone();
+        for(int j = 0; j < imgs[0].rows; j++)
+        {
+            for(int i = 0; i < imgs[0].cols; i++)
+            {
+                for(int c = 0; c < 3; c++)
+                {
+                    if(imgs[2].at<cv::Vec3f>(j,i)[c] >= saturated[c])
+                    {
+                        if(imgs[1].at<cv::Vec3f>(j,i)[c] >= saturated[c])
+                        {
+                            continue;
+                        }
+                        else
+                        {
+                            result.at<cv::Vec3f>(j,i)[c] = imgs[1].at<cv::Vec3f>(j,i)[c] / a_T[1];
+                        }
+                    }
+                    else
+                        result.at<cv::Vec3f>(j,i)[c] = imgs[2].at<cv::Vec3f>(j,i)[c] / a_T[2];
+                }
+            }
+        }
+        checkSaturate(result);
+        //_calculateHistogram(result, imgs[0].rows, imgs[0].cols, "HDR1");
+
+        _HDRSaveRes(result,imgs[0].rows, imgs[0].cols,"HDR1_res_.txt");
+
+
         /*
-        ofstream results_file("Img_" + std::to_string(index) + ".txt");
+        result.convertTo(result, CV_16S );
+        cv::imwrite("res_HDR1.PNG", result);
+        checkSaturate(result);
+
+        */
+    }
+    void _HDRSaveRes(const cv::Mat& result, int rows, int cols, string path)
+    {
+        ofstream results_file(path);
         if (results_file.is_open())
         {
-            for(int j = 0; j < img.rows; j++)
+            for(int j = 0; j < rows; j++)
             {
-                for(int i = 0; i < img.cols; i++)
+                for(int i = 0; i < cols; i++)
                 {
-                    results_file << img.at<Vec3b>(Point(i, j)).val[0] <<" " << img.at<Vec3b>(Point(i, j)).val[1] <<" " << img.at<Vec3b>(Point(i, j)).val[2];
-                    results_file<<endl;
+                    for(int c = 0; c < 3; c++)
+                    {
+                        results_file << result.at<cv::Vec3f>(j,i)[c] << " ";
+                    }
+                    results_file << endl;
                 }
             }
             results_file.close();
-            std::cout << "Saved the histogram results of " +  std::to_string(index) << endl;
+            std::cout<<"Saved the result of HDR"<<endl;
         }
         else
             std::cout << "Unable to open file";
-        */
-        cv::imwrite("Img_" + std::to_string(index) + ".jpg", img);
+
     }
-    void _calculateHistogram(const cv::Mat& img, int index)
+    void _HDR_method2(const vector<cv::Mat>& imgs)
+    {
+        float saturated[] = {std::pow(255, 1.0/b[0]), std::pow(255, 1.0/b[1]),std::pow(255, 1.0/b[2])};
+        cv::Mat result = imgs[0].clone();
+        for(int j = 0; j < imgs[0].rows; j++)
+        {
+            for(int i = 0; i < imgs[0].cols; i++)
+            {
+                for(int c = 0; c < 3; c++)
+                {
+                    if(imgs[2].at<cv::Vec3f>(j,i)[c] >= saturated[c])
+                    {
+                        if(imgs[1].at<cv::Vec3f>(j,i)[c] >= saturated[c])
+                        {
+                            continue;
+                        }
+                        else
+                        {
+                            result.at<cv::Vec3f>(j,i)[c] = (imgs[1].at<cv::Vec3f>(j,i)[c] / a_T[1] + imgs[0].at<cv::Vec3f>(j,i)[c]) / 2.0;
+                        }
+                    }
+                    else
+                        result.at<cv::Vec3f>(j,i)[c] = (imgs[0].at<cv::Vec3f>(j,i)[c] + imgs[1].at<cv::Vec3f>(j,i)[c] / a_T[1] + imgs[2].at<cv::Vec3f>(j,i)[c] / a_T[2] ) / 3.0;
+                }
+            }
+        }
+
+        checkSaturate(result);
+        _HDRSaveRes(result,imgs[0].rows, imgs[0].cols, "HDR2_res_.txt");
+        /*
+        result.convertTo(result, CV_16S );
+        cv::imwrite("res_HDR2.PNG", result);
+        */
+
+    }
+    void _calculateHistogram(const cv::Mat& img, string index)
     {
         //calculate Histogram
         MatND hist_r, hist_g, hist_b;
         int imgCount = 1;
-        int dims = 1;
+        int dims = 25;
         const int sizes[] = {256};
         const int channels_r[] = {0};
         const int channels_g[] = {1};
         const int channels_b[] = {2};
-        float Range[] = {0,256};
+        float Range[] = {0,pow(255, b[2])};
         const float *ranges[] = {Range};
         Mat mask = Mat();
         calcHist(&img, imgCount, channels_r, mask, hist_r, dims, sizes, ranges);
         calcHist(&img, imgCount, channels_g, mask, hist_g, dims, sizes, ranges);
         calcHist(&img, imgCount, channels_b, mask, hist_b, dims, sizes, ranges);
-        ofstream results_file("His_" + std::to_string(index) + ".txt");
+        ofstream results_file("His_" + index + ".txt");
+        /*
         if (results_file.is_open())
         {
-            for(int i = 0; i < 256; i++){
+            for(int i = 0; i < pow(255, b[2]); i++){
                 results_file << *hist_r.ptr<float>(i) <<" " << *hist_g.ptr<float>(i) <<" " << *hist_b.ptr<float>(i);
                 results_file<<endl;
             }
             results_file.close();
-            std::cout << "Saved the histogram results of " +  std::to_string(index) << endl;
+            std::cout << "Saved the histogram results of " + index << endl;
         }
         else
             std::cout << "Unable to open file";
+            */
 
     }
     void _radiometriCalibration(vector<cv::Mat>& imgs)
@@ -198,9 +282,12 @@ private:
             {
                 for(int i = 0; i < img.cols; i++)
                 {
-                    img.at<Vec3b>(Point(i, j)).val[0] = std::pow(img.at<Vec3b>(Point(i, j)).val[0], 1.0/b[0]);
-                    img.at<Vec3b>(Point(i, j)).val[1] = std::pow(img.at<Vec3b>(Point(i, j)).val[1], 1.0/b[1]);
-                    img.at<Vec3b>(Point(i, j)).val[2] = std::pow(img.at<Vec3b>(Point(i, j)).val[2], 1.0/b[2]);
+                    Vec3f p = img.at<cv::Vec3f>(j,i);//todo
+
+                    p[0] = std::pow(p[0], 1.0/b[0]);
+                    p[1] = std::pow(p[1], 1.0/b[1]);
+                    p[2] = std::pow(p[2], 1.0/b[2]);
+                    img.at<cv::Vec3f>(j,i) = p;
                 }
             }
         }
@@ -236,7 +323,7 @@ int main()
 
     //int exp_time[] = {350, 250, 180, 125, 90, 60, 45, 30};
     int exp_time[] = {8772, 6410, 4167, 3096, 2037, 1520, 1008, 754, 501, 351};
-    int hdr_exp_time[] = {2037, 251, 60};
+    int hdr_exp_time[] = {754, 251, 90};
     int img_num = sizeof(exp_time) / sizeof(*exp_time);
     device device1(exp_time, hdr_exp_time, img_num);
     //device1.radiometriCalibrationParam("src/prt1/1_");
