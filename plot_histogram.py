@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cv2
 import itertools
+import argparse
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter, LogFormatterSciNotation, MaxNLocator
 def readInChunks(fileObj, chunkSize=1024):
     """
@@ -36,8 +37,11 @@ def readtxt(path, index):
                 break
         '''
         with open(path) as f:
-            lines = f.readlines()
-            img_after_HDR[index] = [list(map(float, line.split())) for line in lines]
+            try:
+                lines = f.readlines()
+                img_after_HDR[index] = [list(map(float, line.split())) for line in lines]
+            except:
+                print ("No files! You need to run hdr.cpp first!")
 
         img_after_HDR[index] = np.asarray(img_after_HDR[index])
 
@@ -62,7 +66,7 @@ def plot(img1, index, div = False, cali = True):
             plt.suptitle("Histogram B’g(a_"+ str(index - 1) +"*T)/a_" + str(index - 1))
     else:
             fig = plt.figure(index)
-            plt.suptitle("HDR"+ str(index) + " Histogram" +"*T)")
+            plt.suptitle("HDR"+ str(index - 5) + " Histogram" +"*T)")
 
     ax1 = fig.add_subplot(1,3,1)
     #ax1.set_xlabel('T(s)')
@@ -92,38 +96,43 @@ def plot(img1, index, div = False, cali = True):
     ax3.hist(img1[:,2], range = (0, pow(255, 1 / b[2])), bins=n_bins)
 
 
+parser = argparse.ArgumentParser(description='Plot Histogram for Question 2 and 3')
+parser.add_argument('-q2', action='store_true', help='plot histogram for Question 2')
+parser.add_argument('-q3', action='store_true', help='plot histogram for Question 3, Need files generated from hdr.cpp')
+args = parser.parse_args()
+print(args)
 
-with open('results.txt') as f:
-    lines = f.readlines()
-    a = [float(line.split()[0]) for line in lines if len(line.split()) < 3]
-    b = [float(line.split()[1]) for line in lines if len(line.split()) < 3]
-n_bins = 25
-img = [np.asarray(cv2.imread('src/prt2/1_754.JPG'), dtype=np.uint32),
-       np.asarray(cv2.imread('src/prt2/1_251.JPG'), dtype=np.uint32),
-       np.asarray(cv2.imread('src/prt2/1_90.JPG'), dtype=np.uint32)]
-t0 = 1.0/754
-t1 = 1.0/251
-t2 = 1.0/90
-a[0] = t1 * 1.0 / t0
-a[1] = t2 * 1.0 / t0
-img[0] = img[0].reshape(-1, img[0].shape[-1])
-img[1] = img[1].reshape(-1, img[1].shape[-1])
-img[2] = img[2].reshape(-1, img[2].shape[-1])
+if (args.q2 == True):
+    with open('results.txt') as f:
+        lines = f.readlines()
+        a = [float(line.split()[0]) for line in lines if len(line.split()) < 3]
+        b = [float(line.split()[1]) for line in lines if len(line.split()) < 3]
+    n_bins = 25
+    t0 = 1.0/2037
+    t1 = 1.0/351
+    t2 = 1.0/180
+    img = [np.asarray(cv2.imread('src/prt2/1_2037.JPG'), dtype=np.uint32),
+           np.asarray(cv2.imread('src/prt2/1_351.JPG'), dtype=np.uint32),
+           np.asarray(cv2.imread('src/prt2/1_180.JPG'), dtype=np.uint32)]
+    a[0] = t1 * 1.0 / t0
+    a[1] = t2 * 1.0 / t0
+    img[0] = img[0].reshape(-1, img[0].shape[-1])
+    img[1] = img[1].reshape(-1, img[1].shape[-1])
+    img[2] = img[2].reshape(-1, img[2].shape[-1])
 
-#plot(img[0], 1)
-#plot(img[1], 2)
-#plot(img[2], 3)
-#plot(img[1], 2, True)
-#plot(img[2], 3, True)
+    plot(img[0], 1)
+    plot(img[1], 2)
+    plot(img[2], 3)
+    plot(img[1], 2, True)
+    plot(img[2], 3, True)
+if (args.q3 == True):
+    #prt3
+    img_after_HDR = [{},{}]
 
-#prt3
-img_after_HDR = [{},{}]
-
-
-readtxt("HDR1_res_.txt", 0)
-readtxt("HDR2_res_.txt", 1)
-print(img_after_HDR[0].shape)
-plot(img_after_HDR[0], 1, cali = False)
-plot(img_after_HDR[1], 2, cali = False)
-
-plt.show()
+    readtxt("HDR1_res_.txt", 0)
+    readtxt("HDR2_res_.txt", 1)
+    print(img_after_HDR[0].shape)
+    plot(img_after_HDR[0], 6, cali = False)
+    plot(img_after_HDR[1], 7, cali = False)
+if (args.q3 ==True or args.q2 ==True):
+    plt.show()

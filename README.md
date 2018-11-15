@@ -1,14 +1,19 @@
 # HDR_System
 ## environment
 *  OS: Mac OS 10.13.3
-*  Language: C++, Python3
-*  Libraries: C++ : OpenCV3.4. Python3: OpenCV, numpy, matplotlib 
+*  Language: C++11, Python3
+*  Libraries: **For C++** : OpenCV3.4. **For Python3**: OpenCV, numpy, matplotlib
 
 ## How to Run
 *  **Run cpp file for calibration, calculate HDR and save HDR results:**  
- In terminal, go to the root directory of this project, **run command "make"**.  
- The results images will be saved at the root directory as "HDR1_res.JPG" and "HDR2_res.JPG".  
+ If you have **c++ and opencv** environment, you can use your IDE to run the code **"hdr.cpp"** directly.  
+
+ Or if you are a Mac user: In terminal, go to the root directory of this project, **run command "make"**.  
+
+ The results images will be saved at the project root directory as "HDR1_res.JPG" and "HDR2_res.JPG".  
+
 *  **Plot:**  
- After running the cpp file, the data used for plotting has been saved in the folder.  
+ **After running "hdr.cpp"**, the data used for plotting will be saved in the folder.  
  **run command "python3 plot.py"** to plot the figures for question 1.  
- **run command "python3 plot_histogram.py"** to plot the histograms for question 2 and 3.
+ **run command "python3 plot_histogram.py -q2"** to plot the histograms for question 2.  
+ **run command "python3 plot_histogram.py -q3"** to plot the histograms for question 3 (Should run hdr.cpp first).  

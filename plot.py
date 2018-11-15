@@ -16,7 +16,7 @@ with open('results.txt') as f:
     ax1 = fig.add_subplot(1,1,1)
     #ax1.set_title("Plot title")
     ax1.set_xlabel('T(s)')
-    ax1.set_ylabel('B')
+    ax1.set_ylabel('B\'')
     ax1.plot(x, r, c='r', label='r')
     ax1.plot(x, g, c='g', label='g')
     ax1.plot(x, b, c='b', label='b')

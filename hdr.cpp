@@ -40,6 +40,7 @@ public:
         cropped_height = 512;
         a_T[1] = (1.0/hdr_exp_time[1]) / (1.0/hdr_exp_time[0]);
         a_T[2] = (1.0/hdr_exp_time[2]) / (1.0/hdr_exp_time[0]);
+	cout<<"a1 = " << a_T[1]<<", a2 = "<< a_T[2]<<endl;
     }
     void radiometriCalibrationParam(const string& path)
     {
@@ -56,16 +57,17 @@ public:
 
         //cropping
         cv::Rect roi;
-        roi.x = (img[0].cols - cropped_height) / 2;
-        roi.y = (img[0].rows - cropped_width) / 2;
+        roi.x = (img[0].cols - cropped_width) / 2;
+        roi.y = (img[0].rows - cropped_height) / 2;
         roi.width = cropped_width;
         roi.height = cropped_height;
 
         for (int i = 0; i < img_num; i++){
             img[i] = img[i](roi);
-            //cv::imshow("crop", img[i]);
-            //cv::waitKey(0);
+            cv::imwrite(std::to_string(i) + "_cali.jpg", img[i]);
+            //cv::waitKey(10);
         }
+        //cv::waitKey(0);
 
         _checkSaturate(img[img_num - 1]);
 
@@ -79,16 +81,14 @@ public:
 
 
         //linear regression
-        _linearRegression(0); //r
-        _linearRegression(1); //g
-        _linearRegression(2); //b
+        _linearRegression(0);
+        _linearRegression(1);
+        _linearRegression(2);
 
 
 
     }
     void HDR(const string& path){
-        //190, 208
-        //select: 251, 60, 2037(or 754)
         img_stack.push_back(cv::imread( path + "1_"+ std::to_string(hdr_exp_time[0] ) +".JPG", CV_LOAD_IMAGE_COLOR));
         img_stack.push_back(cv::imread( path + "1_"+ std::to_string(hdr_exp_time[1] ) +".JPG", CV_LOAD_IMAGE_COLOR));
         img_stack.push_back(cv::imread( path + "1_"+ std::to_string(hdr_exp_time[2] ) +".JPG", CV_LOAD_IMAGE_COLOR));
@@ -97,17 +97,6 @@ public:
         _radiometriCalibration(img_stack);
         _HDR_method1(img_stack);
         _HDR_method2(img_stack);
-        /*
-        _checkSaturate(img_stack[0]);
-        _checkSaturate(img_stack[1]);
-        _checkSaturate(img_stack[2]);
-        */ //todo:same
-
-
-
-
-
-
     }
 
     void saveDataForPlotting(string path)
@@ -174,15 +163,8 @@ private:
             }
         }
 
-        //_HDRSaveRes(result,imgs[0].rows, imgs[0].cols,"HDR1_res_.txt");
+        _HDRSaveRes(result,imgs[0].rows, imgs[0].cols,"HDR1_res_.txt");
         _ToneMap(result, imgs[0].rows, imgs[0].cols,1);
-
-        /*
-        result.convertTo(result, CV_16S );
-        cv::imwrite("res_HDR1.PNG", result);
-        _checkSaturate(result);
-
-        */
     }
     void _HDRSaveRes(const cv::Mat& result, int rows, int cols, string path)
     {
@@ -234,7 +216,7 @@ private:
             }
         }
 
-        //_HDRSaveRes(result,imgs[0].rows, imgs[0].cols, "HDR2_res_.txt");
+        _HDRSaveRes(result,imgs[0].rows, imgs[0].cols, "HDR2_res_.txt");
         _ToneMap(result, imgs[0].rows, imgs[0].cols, 2);
 
     }
@@ -256,53 +238,11 @@ private:
                 for(int c = 0; c < 3; c++)
                 {
                     res.at<cv::Vec3f>(j,i)[c] = res.at<cv::Vec3f>(j,i)[c] * 255.0;
-                    //cout<<res.at<cv::Vec3f>(j,i)[c]<<endl;
                 }
             }
         }
-        //_checkSaturate(res);
-
         res.convertTo(res, CV_8U );
         cv::imwrite("HDR" + std::to_string(index) + "_res.JPG", res);
-
-        /*
-        cv::Mat res_split[3];
-        cv::Mat res;
-        cv::Mat planes[3];
-
-        cv::split(img, planes);
-        cout<<img.size()<<img.channels()<<endl;
-        cout<<planes[0].size()<<planes[0].channels()<<endl;
-        // createTonemapDurand(float gamma=1.0f, float contrast=4.0f, float saturation=1.0f, float sigma_space=2.0f, float sigma_color=2.0f)
-        Ptr<TonemapDurand> durand_r = createTonemapDurand(1.0/b[0], 4.0f, 1.0f, 2.0f, 2.0f);
-        Ptr<TonemapDurand> durand_g = createTonemapDurand(1.0/b[1], 4.0f, 1.0f, 2.0f, 2.0f);
-        Ptr<TonemapDurand> durand_b = createTonemapDurand(1.0/b[2], 4.0f, 1.0f, 2.0f, 2.0f);
-
-        durand_r->process(planes[0], res_split[0]);
-        durand_g->process(planes[1], res_split[1]);
-        durand_b->process(planes[2], res_split[2]);
-        cout<<res_split[0].size()<<res_split[0].channels()<<endl;
-        cv::merge(res_split, 3, res);
-        cout<<res.size()<<res.channels()<<endl<<endl;
-
-        for(int j = 0; j < rows; j++)
-        {
-            for(int i = 0; i < cols; i++)
-            {
-                for(int c = 0; c < 3; c++)
-                {
-                    res_split[0].at<cv::Vec3f>(j,i)[c] = res_split[0].at<cv::Vec3f>(j,i)[c] * 255.0;
-                    //cout<<res.at<cv::Vec3f>(j,i)[c]<<endl;
-                }
-            }
-        }
-
-
-        res_split[0].convertTo(res_split[0], CV_8U );
-        cv::imwrite("HDR" + std::to_string(index) + "_res.JPG", res_split[0]);
-        */
-
-
 
     }
     void _calculateHistogram(const cv::Mat& img, string index)
@@ -322,19 +262,6 @@ private:
         calcHist(&img, imgCount, channels_g, mask, hist_g, dims, sizes, ranges);
         calcHist(&img, imgCount, channels_b, mask, hist_b, dims, sizes, ranges);
         ofstream results_file("His_" + index + ".txt");
-        /*
-        if (results_file.is_open())
-        {
-            for(int i = 0; i < pow(255, b[2]); i++){
-                results_file << *hist_r.ptr<float>(i) <<" " << *hist_g.ptr<float>(i) <<" " << *hist_b.ptr<float>(i);
-                results_file<<endl;
-            }
-            results_file.close();
-            std::cout << "Saved the histogram results of " + index << endl;
-        }
-        else
-            std::cout << "Unable to open file";
-            */
 
     }
     void _radiometriCalibration(vector<cv::Mat>& imgs)
@@ -377,7 +304,7 @@ private:
         }
         b[color_channel] = sum_t1 / sum_t2;
         a[color_channel] = mean_y - b[color_channel] * mean_x;
-        //cout<<a[color_channel]<<" "<<b[color_channel]<<endl;
+        cout<<a[color_channel]<<" "<<b[color_channel]<<endl;
     }
 };
 
