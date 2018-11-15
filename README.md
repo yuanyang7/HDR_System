@@ -10,7 +10,7 @@
 
  Or if you are a Mac user: In terminal, go to the root directory of this project, **run command "make"**.  
 
- The results images will be saved at the project root directory as "HDR1_res.JPG" and "HDR2_res.JPG".  
+ The results images will be saved at the project root directory as "HDR1_res.JPG" and "HDR2_res.JPG". The folder "res" contains all the plotting and image results.
 
 *  **Plot:**  
  **After running "hdr.cpp"**, the data used for plotting will be saved in the folder.  
